@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import CrossStitchCanvas from './CrossStitchCanvas';
+import CrossStitchCanvas from './components/CrossStitchCanvas';
 import Legend from './Legend';
 import generatePattern from './utils/generatePattern';
 import extractImageData from './utils/extractImageData';
