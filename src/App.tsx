@@ -1,76 +1,105 @@
-import { useRef, useState } from "react";
-import SettingsPanel from "./components/SettingsPanel";
-import PatternCanvas from "./components/PatternCanvas";
-import LegendPanel from "./components/LegendPanel";
-import { generatePatternFromImage } from "./lib/patternGenerator";
+import React, { useState } from 'react';
+import CrossStitchCanvas from './CrossStitchCanvas';
+import Legend from './Legend';
+import generatePattern from './utils/generatePattern';
+import extractImageData from './utils/extractImageData';
 
-export default function App() {
-  const [pattern, setPattern] = useState<any[][] | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
+const App: React.FC = () => {
+  const [imageData, setImageData] = useState<ImageData | null>(null);
+  const [patternWidth, setPatternWidth] = useState(100);
+  const [patternHeight, setPatternHeight] = useState(150);
+  const [legendMap, setLegendMap] = useState<Map<string, string>>(new Map());
+  const [countPerInch, setCountPerInch] = useState(14);
+  const [maxColors, setMaxColors] = useState(30);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImageUrl(reader.result as string);
-    reader.readAsDataURL(file);
-  };
 
-  const handleGenerate = async ({
-    widthMm,
-    heightMm,
-    count,
-    maxColors,
-  }: {
-    widthMm: number;
-    heightMm: number;
-    count: number;
-    maxColors: number;
-  }) => {
-    if (!imageRef.current) return;
-
-    const widthStitches = Math.round((widthMm / 25.4) * count);
-    const heightStitches = Math.round((heightMm / 25.4) * count);
-
-    const pat = await generatePatternFromImage(
-      imageRef.current,
-      widthStitches,
-      heightStitches
-    );
-    setPattern(pat);
+    const image = new Image();
+    image.src = URL.createObjectURL(file);
+    image.onload = async () => {
+      const extracted = extractImageData(image, patternWidth, patternHeight);
+      const { data, legend } = generatePattern(extracted, maxColors);
+      setImageData(data);
+      setLegendMap(legend);
+    };
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center gap-4 p-4">
-      <h1 className="text-3xl font-bold text-center">🧵 CrossStitch Designer</h1>
+    <div style={{ padding: '20px' }}>
+      <h1>🧵 CrossStitch Designer</h1>
 
-      <input type="file" accept="image/*" onChange={handleImageUpload} className="file-input file-input-bordered w-full max-w-xs" />
+      <div>
+        <input type="file" accept="image/*" onChange={handleImageUpload} />
+      </div>
 
-      {imageUrl && <img src={imageUrl} ref={(el) => (imageRef.current = el)} className="max-w-xs border shadow" style={{ display: "none" }} />}
+      <h2>도안 설정</h2>
+      <div>
+        <label>
+          도안 너비 (mm):
+          <input
+            type="number"
+            value={patternWidth}
+            onChange={(e) => setPatternWidth(Number(e.target.value))}
+          />
+        </label>
+        <label>
+          도안 높이 (mm):
+          <input
+            type="number"
+            value={patternHeight}
+            onChange={(e) => setPatternHeight(Number(e.target.value))}
+          />
+        </label>
+        <label>
+          원단 카운트 (예: 14ct):
+          <input
+            type="number"
+            value={countPerInch}
+            onChange={(e) => setCountPerInch(Number(e.target.value))}
+          />
+        </label>
+        <label>
+          최대 색상 수:
+          <input
+            type="number"
+            value={maxColors}
+            onChange={(e) => setMaxColors(Number(e.target.value))}
+          />
+        </label>
+      </div>
 
-      <SettingsPanel onGenerate={handleGenerate} />
+      <button
+        onClick={() => {
+          if (!imageData) return;
+          const { data, legend } = generatePattern(imageData, maxColors);
+          setImageData(data);
+          setLegendMap(legend);
+        }}
+      >
+        도안 생성하기
+      </button>
 
-      {pattern && (
+      {imageData && (
         <>
-          <PatternCanvas pattern={pattern} />
-          <LegendPanel pattern={pattern} />
-
-          <button
-            className="mt-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-            onClick={() => {
-              const canvas = document.querySelector("canvas");
-              if (!canvas) return;
-              const link = document.createElement("a");
-              link.download = "pattern.jpg";
-              link.href = canvas.toDataURL("image/jpeg");
-              link.click();
-            }}
-          >
-            JPG로 저장
-          </button>
+          <CrossStitchCanvas
+            imageData={imageData}
+            patternWidth={patternWidth}
+            patternHeight={patternHeight}
+            legendMap={legendMap}
+            selectedSymbol={selectedSymbol}
+          />
+          <Legend
+            legendMap={legendMap}
+            selectedSymbol={selectedSymbol}
+            onSelectSymbol={setSelectedSymbol}
+          />
         </>
       )}
     </div>
   );
-}
+};
+
+export default App;
